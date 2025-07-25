@@ -1,46 +1,77 @@
 services:
+  # Reverse proxy
   crowdsec:
-    image: docker.io/crowdsecurity/crowdsec:v1.6.4
+    image: docker.io/crowdsecurity/crowdsec:v1.6.10
     environment:
-      COLLECTIONS: crowdsecurity/traefik crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
-      CUSTOM_HOSTNAME: crowdsec
+      COLLECTIONS: "crowdsecurity/traefik crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules"
+      CUSTOM_HOSTNAME: "crowdsec"
       BOUNCER_KEY_TRAEFIK: ${BOUNCER_KEY_TRAEFIK}
     volumes:
-      - "./acquis.yaml:/etc/crowdsec/acquis.yaml:ro,z"
-      - "traefik-logs-vol:/var/log/traefik:ro,z"
-      - "crowdsec-db-vol:/var/lib/crowdsec/data:Z"
-      - "crowdsec-conf-vol:/etc/crowdsec:Z"
+      - type: volume
+        source: traefik-logs-vol
+        target: /var/log/traefik
+        volume:
+          nocopy: false
+      - type: volume
+        source: crowdsec-db-vol
+        target: /var/lib/crowdsec/data
+        volume:
+          nocopy: false
+      - type: volume
+        source: crowdsec-conf-vol
+        target: /etc/crowdsec
+        volume:
+          nocopy: false
+      - type: bind
+        source: ./acquis.yaml
+        target: /etc/crowdsec/acquis.yaml
+        read_only: true
     networks:
-      - internal
+      - crowdsec
     restart: unless-stopped
+
   traefik:
     depends_on:
       - crowdsec
-    image: docker.io/library/traefik:v3.2.2
+    image: docker.io/library/traefik:v3.4.4
     command:
       - "--accesslog"
       - "--accesslog.filepath=/var/log/traefik/access.log"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:8080"
+      - "--entrypoints.web.address=:80"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-      - "--entrypoints.websecure.address=:8443"
+      - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
       - "--certificatesresolvers.letsencrypt.acme.storage=acme/acme.json"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--experimental.plugins.bouncer.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
-      - "--experimental.plugins.bouncer.version=v1.3.5"
+      - "--experimental.plugins.bouncer.version=v1.4.4"
     ports:
-      - "80:8080"
-      - "443:8443"
+      - "80:80/tcp"
+      - "443:443/tcp"
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro,z"
-      - "traefik-logs-vol:/var/log/traefik:z"
-      - "traefik-acme-vol:/acme:Z"
+      - type: volume
+        source: traefik-logs-vol
+        target: /var/log/traefik
+        volume:
+          nocopy: false
+      - type: volume
+        source: traefik-acme-vol
+        target: /acme
+        volume:
+          nocopy: false
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
     networks:
-      - internal
+      - crowdsec
+      - wg
     restart: unless-stopped
+
+  # VPN
   wg-easy:
     image: ghcr.io/wg-easy/wg-easy:14
     cap_add:
@@ -50,23 +81,27 @@ services:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
     environment:
-      PASSWORD_HASH: ${WGUI_PASSWORD}
-      WG_HOST: ${DOMAIN}
-      WG_DEFAULT_ADDRESS: 10.13.12.x
-      WG_DEFAULT_DNS: 10.13.12.1 # AdguardHome
+      PASSWORD_HASH: ${WG_UI_PASSWORD}
+      WG_HOST: ${VPN_DOMAIN}
+      WG_DEFAULT_ADDRESS: "10.13.12.x"
+      WG_DEFAULT_DNS: ${WG_DEFAULT_DNS:-}
       WG_MTU: 1420
-      WG_ALLOWED_IPS: 0.0.0.0/0,::/0
+      WG_ALLOWED_IPS: "0.0.0.0/0,::/0"
       WG_PERSISTENT_KEEPALIVE: 25
       UI_TRAFFIC_STATS: false
     volumes:
-      - "wg-conf-vol:/etc/wireguard:Z"
+      - type: volume
+        source: wg-conf-vol
+        target: /etc/wireguard
+        volume:
+          nocopy: false
     ports:
       - "51820:51820/udp"
     networks:
-      - internal
+      - wg
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.wgui.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.wgui.rule=Host(`${VPN_DOMAIN}`)"
       - "traefik.http.routers.wgui.middlewares=crowdsec@docker"
       - "traefik.http.routers.wgui.entrypoints=websecure"
       - "traefik.http.routers.wgui.tls=true"
@@ -77,32 +112,14 @@ services:
       - "traefik.http.middlewares.crowdsec.plugin.bouncer.crowdseclapikey=${BOUNCER_KEY_TRAEFIK}"
       - "traefik.http.middlewares.crowdsec.plugin.bouncer.crowdsecappsecenabled=true"
     restart: unless-stopped
-  adguardhome:
-    image: docker.io/adguard/adguardhome:v0.107.59
-    volumes:
-      - "agh-work-vol:/opt/adguardhome/work:Z"
-      - "agh-conf-vol:/opt/adguardhome/conf:Z"
-    network_mode: "service:wg-easy" # Host wireguard server
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.agh.rule=Host(`${DNS_DOMAIN}`)"
-      - "traefik.http.routers.agh.middlewares=crowdsec@docker"
-      - "traefik.http.routers.agh.entrypoints=websecure"
-      - "traefik.http.routers.agh.tls=true"
-      - "traefik.http.routers.agh.tls.certresolver=letsencrypt"
-      - "traefik.http.services.agh.loadbalancer.server.port=3000"
-      - "traefik.http.middlewares.crowdsec.plugin.bouncer.enabled=true"
-      - "traefik.http.middlewares.crowdsec.plugin.bouncer.crowdsecmode=stream"
-      - "traefik.http.middlewares.crowdsec.plugin.bouncer.crowdseclapikey=${BOUNCER_KEY_TRAEFIK}"
-      - "traefik.http.middlewares.crowdsec.plugin.bouncer.crowdsecappsecenabled=true"
-    restart: unless-stopped
+
 networks:
-  internal:
+  crowdsec:
+  wg:
+
 volumes:
   crowdsec-db-vol:
   crowdsec-conf-vol:
   traefik-logs-vol:
   traefik-acme-vol:
   wg-conf-vol:
-  agh-work-vol:
-  agh-conf-vol:
