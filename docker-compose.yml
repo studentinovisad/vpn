@@ -73,7 +73,7 @@ services:
 
   # VPN
   wg-easy:
-    image: ghcr.io/wg-easy/wg-easy:14
+    image: ghcr.io/wg-easy/wg-easy:15.1.0
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -83,15 +83,6 @@ services:
       - net.ipv6.conf.all.disable_ipv6=0
       - net.ipv6.conf.all.forwarding=1
       - net.ipv6.conf.default.forwarding=1
-    environment:
-      PASSWORD_HASH: ${WG_UI_PASSWORD}
-      WG_HOST: ${VPN_DOMAIN}
-      WG_DEFAULT_ADDRESS: "${WG_DEFAULT_ADDRESS:-10.13.12.x}"
-      WG_DEFAULT_DNS: ${WG_DEFAULT_DNS:-}
-      WG_MTU: 1420
-      WG_ALLOWED_IPS: "0.0.0.0/0,::/0"
-      WG_PERSISTENT_KEEPALIVE: 25
-      UI_TRAFFIC_STATS: false
     volumes:
       - type: volume
         source: wg-conf-vol
