@@ -27,7 +27,7 @@ services:
         target: /etc/crowdsec/acquis.yaml
         read_only: true
     networks:
-      - cs
+      - web
     restart: unless-stopped
 
   traefik:
@@ -70,7 +70,7 @@ services:
         read_only: true
     networks:
       - web
-      - cs
+      - wireguard
     restart: unless-stopped
 
   # VPN
@@ -99,10 +99,7 @@ services:
     ports:
       - "51820:51820/udp"
     networks:
-      web:
-        driver_opts:
-          com.docker.network.endpoint.ifname: eth1
-      wg:
+      wireguard:
         driver_opts:
           com.docker.network.endpoint.ifname: eth0
         ipv4_address: 10.42.42.42
@@ -131,17 +128,12 @@ services:
     restart: unless-stopped
 
 networks:
-  cs:
-    driver: bridge
-    enable_ipv6: true
-    ipam:
-      driver: default
   web:
     driver: bridge
     enable_ipv6: true
     ipam:
       driver: default
-  wg:
+  wireguard:
     driver: bridge
     enable_ipv6: true
     ipam:
