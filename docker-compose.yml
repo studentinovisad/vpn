@@ -1,7 +1,7 @@
 services:
   # Reverse proxy
   crowdsec:
-    image: docker.io/crowdsecurity/crowdsec:v1.6.10
+    image: docker.io/crowdsecurity/crowdsec:v1.6.11
     environment:
       COLLECTIONS: "crowdsecurity/traefik crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules"
       CUSTOM_HOSTNAME: "crowdsec"
@@ -27,13 +27,13 @@ services:
         target: /etc/crowdsec/acquis.yaml
         read_only: true
     networks:
-      - web
+      - cs
     restart: unless-stopped
 
   traefik:
     depends_on:
       - crowdsec
-    image: docker.io/library/traefik:v3.4.4
+    image: docker.io/library/traefik:v3.5.0
     command:
       - "--accesslog"
       - "--accesslog.filepath=/var/log/traefik/access.log"
@@ -70,21 +70,14 @@ services:
         read_only: true
     networks:
       - web
-      - wireguard
+      - cs
     restart: unless-stopped
 
   # VPN
   wg-easy:
     image: ghcr.io/wg-easy/wg-easy:15.1.0
-    cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
-    sysctls:
-      - net.ipv4.ip_forward=1
-      - net.ipv4.conf.all.src_valid_mark=1
-      - net.ipv6.conf.all.disable_ipv6=0
-      - net.ipv6.conf.all.forwarding=1
-      - net.ipv6.conf.default.forwarding=1
+    environment:
+      WG_DEVICE: eth0
     volumes:
       - type: volume
         source: wg-conf-vol
@@ -98,7 +91,23 @@ services:
     ports:
       - "51820:51820/udp"
     networks:
-      - wireguard
+      web:
+        driver_opts:
+          com.docker.network.endpoint.ifname: eth1
+      wg:
+        driver_opts:
+          com.docker.network.endpoint.ifname: eth0
+        ipv4_address: 10.42.42.42
+        ipv6_address: fdcc:ad94:bacf:61a3::2a
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv6.conf.all.forwarding=1
+      - net.ipv6.conf.default.forwarding=1
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.wgui.rule=Host(`${VPN_DOMAIN}`)"
@@ -114,16 +123,16 @@ services:
     restart: unless-stopped
 
 networks:
+  cs:
   web:
+  wg:
     driver: bridge
     enable_ipv6: true
     ipam:
       driver: default
-  wireguard:
-    driver: bridge
-    enable_ipv6: true
-    ipam:
-      driver: default
+      config:
+        - subnet: 10.42.42.0/24
+        - subnet: fdcc:ad94:bacf:61a3::/64
 
 volumes:
   crowdsec-db-vol:
