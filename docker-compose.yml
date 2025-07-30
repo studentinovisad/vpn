@@ -132,7 +132,15 @@ services:
 
 networks:
   cs:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
   web:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
   wg:
     driver: bridge
     enable_ipv6: true
