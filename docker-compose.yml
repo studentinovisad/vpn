@@ -33,7 +33,7 @@ services:
   traefik:
     depends_on:
       - crowdsec
-    image: docker.io/library/traefik:v3.5.0
+    image: docker.io/library/traefik:v3.4.5
     command:
       - "--accesslog"
       - "--accesslog.filepath=/var/log/traefik/access.log"
