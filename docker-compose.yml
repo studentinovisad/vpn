@@ -83,7 +83,7 @@ services:
       INIT_PASSWORD: ${VPN_GUI_PASSWORD:-admin}
       INIT_HOST: ${VPN_DOMAIN:-}
       INIT_PORT: 51820
-      INIT_DNS: ${VPN_DNS:-1.1.1.1,1.0.0.1}
+      INIT_DNS: ${VPN_DNS:-9.9.9.9,149.112.112.112}
       INIT_IPV4_CIDR: 10.8.0.0/24
       INIT_IPV6_CIDR: fd00:8::/64
     volumes:
