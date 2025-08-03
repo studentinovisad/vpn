@@ -77,7 +77,7 @@ services:
   wg-easy:
     image: ghcr.io/wg-easy/wg-easy:15.1.0
     environment:
-      WG_DEVICE: eth0
+      WG_DEVICE: mull
       INIT_ENABLED: true
       INIT_USERNAME: ${VPN_GUI_USERNAME:-admin}
       INIT_PASSWORD: ${VPN_GUI_PASSWORD:-admin}
