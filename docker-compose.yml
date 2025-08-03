@@ -74,7 +74,50 @@ services:
     restart: unless-stopped
 
   # VPN
+  mullvad:
+    image: ghcr.io/linuxserver/wireguard:1.0.20250521
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - type: bind
+        source: ./mull.conf
+        target: /config/wg_confs/mull.conf
+        read_only: true
+      - type: bind
+        source: /lib/modules
+        target: /lib/modules
+        read_only: true
+    network_mode: service:wg-easy
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv6.conf.all.forwarding=1
+      - net.ipv6.conf.default.forwarding=1
+    restart: unless-stopped
+
+networks:
+  web:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
+  wireguard:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.42.42.0/24
+        - subnet: fdcc:ad94:bacf:61a3::/64
+  
   wg-easy:
+    depends_on:
+      - mullvad
     image: ghcr.io/wg-easy/wg-easy:15.1.0
     environment:
       WG_DEVICE: ${VPN_WG_DEVICE:-mull} # Set to eth0 to not use Mullvad as a hop
@@ -126,47 +169,6 @@ services:
       - "traefik.http.middlewares.crowdsec.plugin.bouncer.crowdseclapikey=${BOUNCER_KEY_TRAEFIK}"
       - "traefik.http.middlewares.crowdsec.plugin.bouncer.crowdsecappsecenabled=true"
     restart: unless-stopped
-
-  mullvad:
-    image: ghcr.io/linuxserver/wireguard:1.0.20250521
-    environment:
-      - PUID=1000
-      - PGID=1000
-    volumes:
-      - type: bind
-        source: ./mull.conf
-        target: /config/wg_confs/mull.conf
-        read_only: true
-      - type: bind
-        source: /lib/modules
-        target: /lib/modules
-        read_only: true
-    network_mode: service:wg-easy
-    cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
-    sysctls:
-      - net.ipv4.ip_forward=1
-      - net.ipv4.conf.all.src_valid_mark=1
-      - net.ipv6.conf.all.disable_ipv6=0
-      - net.ipv6.conf.all.forwarding=1
-      - net.ipv6.conf.default.forwarding=1
-    restart: unless-stopped
-
-networks:
-  web:
-    driver: bridge
-    enable_ipv6: true
-    ipam:
-      driver: default
-  wireguard:
-    driver: bridge
-    enable_ipv6: true
-    ipam:
-      driver: default
-      config:
-        - subnet: 10.42.42.0/24
-        - subnet: fdcc:ad94:bacf:61a3::/64
 
 volumes:
   crowdsec-db-vol:
