@@ -88,7 +88,15 @@ services:
         source: /lib/modules
         target: /lib/modules
         read_only: true
-    network_mode: service:wg-easy
+    # Needed ports and network for wg-easy
+    ports:
+      - "51820:51820/udp"
+    networks:
+      wireguard:
+        driver_opts:
+          com.docker.network.endpoint.ifname: eth0
+        ipv4_address: 10.42.42.42
+        ipv6_address: fdcc:ad94:bacf:61a3::2a
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -99,6 +107,14 @@ services:
       - net.ipv6.conf.all.forwarding=1
       - net.ipv6.conf.default.forwarding=1
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wg", "show", "mull", "latest-handshakes"]
+      interval: 30s
+      retries: 3
+      timeout: 10s
+      start_period: 30s
+      healthy: ["0"]
+      unhealthy: ["1"]
   
   wg-easy:
     depends_on:
@@ -124,14 +140,8 @@ services:
         source: /lib/modules
         target: /lib/modules
         read_only: true
-    ports:
-      - "51820:51820/udp"
-    networks:
-      wireguard:
-        driver_opts:
-          com.docker.network.endpoint.ifname: eth0
-        ipv4_address: 10.42.42.42
-        ipv6_address: fdcc:ad94:bacf:61a3::2a
+    network_mode: service:mullvad
+    # ^ Look for port and network section in Mullvad
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
