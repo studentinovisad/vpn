@@ -113,12 +113,11 @@ services:
       retries: 3
       timeout: 10s
       start_period: 30s
-      healthy: ["0"]
-      unhealthy: ["1"]
-  
+
   wg-easy:
     depends_on:
-      - mullvad
+      mullvad:
+        condition: service_healthy
     image: ghcr.io/wg-easy/wg-easy:15.1.0
     environment:
       WG_DEVICE: ${VPN_WG_DEVICE:-mull} # Set to eth0 to not use Mullvad as a hop
