@@ -99,21 +99,6 @@ services:
       - net.ipv6.conf.all.forwarding=1
       - net.ipv6.conf.default.forwarding=1
     restart: unless-stopped
-
-networks:
-  web:
-    driver: bridge
-    enable_ipv6: true
-    ipam:
-      driver: default
-  wireguard:
-    driver: bridge
-    enable_ipv6: true
-    ipam:
-      driver: default
-      config:
-        - subnet: 10.42.42.0/24
-        - subnet: fdcc:ad94:bacf:61a3::/64
   
   wg-easy:
     depends_on:
@@ -169,6 +154,21 @@ networks:
       - "traefik.http.middlewares.crowdsec.plugin.bouncer.crowdseclapikey=${BOUNCER_KEY_TRAEFIK}"
       - "traefik.http.middlewares.crowdsec.plugin.bouncer.crowdsecappsecenabled=true"
     restart: unless-stopped
+
+networks:
+  web:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
+  wireguard:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.42.42.0/24
+        - subnet: fdcc:ad94:bacf:61a3::/64
 
 volumes:
   crowdsec-db-vol:
