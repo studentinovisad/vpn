@@ -1,0 +1,23 @@
+[Interface]
+# Device: New Device
+PrivateKey = privkey=
+Address = <mull_ipv4_local>/32,<mull_ipv6_local>/128
+DNS = 100.64.0.7
+
+Table = 123
+PostUp = ip rule add from 10.8.0.0/24 table 123
+PostUp = ip rule add from <mull_ipv4_local>/32 table 123
+PostUp = ip -6 rule add from <mull_ipv6_local>/128 table 123
+PostUp = iptables -t nat -A POSTROUTING -o %i -j MASQUERADE
+PostUp = ip6tables -t nat -A POSTROUTING -o %i -j MASQUERADE
+
+PreDown = ip rule del from 10.8.0.0/24 table 123
+PreDown = ip rule del from <mull_ipv4_local>/32 table 123
+PreDown = ip -6 rule del from <mull_ipv6_local>/128 table 123
+PreDown = iptables -t nat -D POSTROUTING -o %i -j MASQUERADE
+PreDown = ip6tables -t nat -D POSTROUTING -o %i -j MASQUERADE
+
+[Peer]
+PublicKey = pubkey=
+AllowedIPs = 0.0.0.0/0,::0/0
+Endpoint = [<ipv6_endpoint>]:443
